@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Derma Sentry Check</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #eff6ff;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --success: #10b981;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); font-family: 'Sarabun', sans-serif; margin: 0; padding: 12px; color: var(--text-main); }
+        .container { width: 100%; max-width: 100%; margin: 0 auto; }
+        
+        header { text-align: center; margin-bottom: 25px; padding-top: 15px; }
+        .title-box { display: inline-block; border: 3px solid var(--primary); padding: 10px 20px; border-radius: 8px; background: #fff; }
+        header h1 { color: var(--primary); font-size: 1.6rem; margin: 0; font-weight: 800; letter-spacing: 1px; }
+        header .subtitle { display: block; color: var(--text-muted); font-size: 0.85rem; margin-top: 10px; font-weight: 400; }
+
+        .card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .section-title { display: block; font-weight: 700; color: var(--primary); margin-bottom: 12px; font-size: 0.95rem; }
+        input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 16px; }
+        .options-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; }
+        .options-group.triple { grid-template-columns: repeat(3, 1fr); }
+        .option-label { position: relative; width: 100%; }
+        .option-label input { position: absolute; opacity: 0; }
+        .option-design { display: block; text-align: center; padding: 10px 4px; background: #fff; border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 0.85rem; transition: 0.2s; }
+        .option-label input:checked + .option-design { background: var(--primary-light); border-color: var(--primary); color: var(--primary); font-weight: 700; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .input-group small { display: block; margin-bottom: 4px; font-size: 0.8rem; color: var(--text-muted); }
+        .sub-options { background: var(--primary-light); padding: 12px; border-radius: 10px; margin-top: 10px; }
+        .checkbox-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.9rem; }
+        .fab { position: fixed; bottom: 20px; left: 5%; width: 90%; background: var(--primary); color: white; padding: 14px; border-radius: 12px; border: none; font-weight: 700; font-size: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 100; cursor: pointer; }
+        .hidden { display: none; }
+        .mt-3 { margin-top: 10px; }
+        
+        #success-page { display: none; text-align: center; padding-top: 100px; height: 100vh; background: #fff; position: fixed; top:0; left:0; width:100%; z-index: 999; }
+        .success-icon { color: var(--success); font-size: 60px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="success-page">
+    <div class="success-icon">✓</div>
+    <h2>บันทึกข้อมูลสำเร็จ</h2>
+    <p style="color: var(--text-muted);">กำลังส่งข้อมูลกลับไปที่ LINE ของคุณ...</p>
+</div>
+
+<div class="container" id="form-container">
+    <header>
+        <div class="title-box">
+            <h1>DERMA SENTRY CHECK</h1>
+        </div>
+        <span class="subtitle">แบบบันทึกวิเคราะห์ความผิดปกติที่ปรากฏบนผิวหนัง</span>
+    </header>
+
+    <form id="mainForm">
+        <div class="card">
+            <span class="section-title">สาเหตุ</span>
+            <div class="options-group">
+                <label class="option-label"><input type="radio" name="cause" value="ไม่ทราบ" onclick="toggleExtra('cause_detail', false)"><span class="option-design">ไม่ทราบ</span></label>
+                <label class="option-label"><input type="radio" name="cause" value="ทราบ" onclick="toggleExtra('cause_detail', true)"><span class="option-design">ทราบ</span></label>
+            </div>
+            <input type="text" id="cause_detail" class="hidden mt-3" placeholder="ระบุรายละเอียด">
+        </div>
+
+        <div class="card"><span class="section-title">อาการ</span><textarea id="q2" rows="2" placeholder="เช่น คัน, ปวดศีรษะ"></textarea></div>
+        <div class="card"><span class="section-title">อาการแสดง</span><textarea id="q3" rows="2" placeholder="เช่น ผื่นแดงขอบชัด"></textarea></div>
+
+        <div class="card">
+            <span class="section-title">โรคประจำตัว</span>
+            <div class="options-group">
+                <label class="option-label"><input type="radio" name="congenital" value="ไม่มี" onclick="toggleExtra('disease_detail', false)"><span class="option-design">ไม่มี</span></label>
+                <label class="option-label"><input type="radio" name="congenital" value="มี" onclick="toggleExtra('disease_detail', true)"><span class="option-design">มี</span></label>
+            </div>
+            <input type="text" id="disease_detail" class="hidden mt-3" placeholder="ระบุโรคประจำตัว">
+        </div>
+
+        <div class="card">
+            <span class="section-title">ข้อมูลพื้นฐาน</span>
+            <div class="grid-2">
+                <div class="input-group"><small>น้ำหนัก (กก.)</small><input type="number" id="weight"></div>
+                <div class="input-group"><small>ส่วนสูง (ซม.)</small><input type="number" id="height"></div>
+                <div class="input-group"><small>อายุ (ปี)</small><input type="number" id="age"></div>
+                <div class="input-group"><small>เป็นมา (ชม.)</small><input type="number" id="duration"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="section-title">เพศ</span>
+            <div class="options-group">
+                <label class="option-label"><input type="radio" name="gender" value="ชาย" onclick="toggleExtra('preg_box', false)"><span class="option-design">ชาย</span></label>
+                <label class="option-label"><input type="radio" name="gender" value="หญิง" onclick="toggleExtra('preg_box', true)"><span class="option-design">หญิง</span></label>
+            </div>
+            <div id="preg_box" class="hidden mt-3">
+                <div class="options-group">
+                    <label class="option-label"><input type="radio" name="preg" value="ตั้งครรภ์"><span class="option-design">ตั้งครรภ์</span></label>
+                    <label class="option-label"><input type="radio" name="preg" value="ไม่ตั้งครรภ์"><span class="option-design">ไม่ตั้งครรภ์</span></label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="section-title">ลักษณะการกระจายตัว</span>
+            <div class="options-group">
+                <label class="option-label"><input type="radio" name="dist" value="กระจายตัว"><span class="option-design">กระจายตัว</span></label>
+                <label class="option-label"><input type="radio" name="dist" value="กระจุกตัว"><span class="option-design">กระจุกตัว</span></label>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="section-title">ตำแหน่ง</span>
+            <div class="options-group">
+                <label class="option-label"><input type="radio" name="loc" value="ทั่วร่างกาย" onclick="toggleExtra('loc_detail', false)"><span class="option-design">ทั่วร่างกาย</span></label>
+                <label class="option-label"><input type="radio" name="loc" value="เฉพาะบริเวณ" onclick="toggleExtra('loc_detail', true)"><span class="option-design">เฉพาะบริเวณ</span></label>
+            </div>
+            <input type="text" id="loc_detail" class="hidden mt-3" placeholder="ระบุตำแหน่ง">
+        </div>
+
+        <div class="card">
+            <span class="section-title">ปัจจัยกระตุ้น</span>
+            <div class="options-group">
+                <label class="option-label"><input type="radio" name="trigger" value="ไม่ทราบ" onclick="toggleExtra('trigger_detail', false)"><span class="option-design">ไม่ทราบ</span></label>
+                <label class="option-label"><input type="radio" name="trigger" value="ทราบ" onclick="toggleExtra('trigger_detail', true)"><span class="option-design">ทราบ</span></label>
+            </div>
+            <input type="text" id="trigger_detail" class="hidden mt-3" placeholder="ระบุปัจจัย">
+        </div>
+
+        <div class="card">
+            <span class="section-title">การติดต่อของโรค</span>
+            <div class="options-group triple">
+                <label class="option-label"><input type="radio" name="cont" value="ติดต่อ"><span class="option-design">ติดต่อ</span></label>
+                <label class="option-label"><input type="radio" name="cont" value="ไม่ติดต่อ"><span class="option-design">ไม่ติดต่อ</span></label>
+                <label class="option-label"><input type="radio" name="cont" value="ไม่ทราบ"><span class="option-design">ไม่ทราบ</span></label>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="section-title">เวลานอน (ชม./วัน)</span>
+            <div class="options-group">
+                <label class="option-label"><input type="radio" name="sleep" value="1-3"><span class="option-design">1-3</span></label>
+                <label class="option-label"><input type="radio" name="sleep" value="4-6"><span class="option-design">4-6</span></label>
+                <label class="option-label"><input type="radio" name="sleep" value="7-9"><span class="option-design">7-9</span></label>
+                <label class="option-label"><input type="radio" name="sleep" value="10+"><span class="option-design">10+</span></label>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="section-title">พฤติกรรมการใช้สาร</span>
+            <div class="options-group">
+                <label class="option-label"><input type="radio" name="sub_status" value="ไม่มี" onclick="toggleExtra('sub_options', false)"><span class="option-design">ไม่มี</span></label>
+                <label class="option-label"><input type="radio" name="sub_status" value="มี" onclick="toggleExtra('sub_options', true)"><span class="option-design">มี</span></label>
+            </div>
+            <div id="sub_options" class="hidden sub-options">
+                <label class="checkbox-item"><input type="checkbox" class="sub-item" value="แอลกอฮอล์"> แอลกอฮอล์</label>
+                <label class="checkbox-item"><input type="checkbox" class="sub-item" value="ยาสูบ"> ยาสูบ (บุหรี่/ไฟฟ้า)</label>
+                <label class="checkbox-item"><input type="checkbox" id="sub_other_chk" onclick="toggleExtra('sub_other_in', this.checked)"> อื่นๆ</label>
+                <input type="text" id="sub_other_in" class="hidden mt-3" placeholder="ระบุรายละเอียด">
+            </div>
+        </div>
+
+        <div style="height: 100px;"></div>
+    </form>
+</div>
+
+<button class="fab" id="finishBtn" onclick="processData()">เสร็จสิ้น</button>
+
+<script>
+    const MY_LIFF_ID = "2010047254-tbBUmte0"; 
+
+    async function main() {
+        try {
+            await liff.init({ liffId: MY_LIFF_ID });
+            if (!liff.isLoggedIn()) { liff.login(); }
+        } catch (err) { console.error("LIFF Init Error", err); }
+    }
+    main();
+
+    function toggleExtra(id, show) {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', !show);
+    }
+
+    async function processData() {
+        const getV = (id) => document.getElementById(id).value;
+        const getR = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
+
+        let substances = [];
+        if (getR('sub_status') === 'มี') {
+            document.querySelectorAll('.sub-item:checked').forEach(item => substances.push(item.value));
+            if (document.getElementById('sub_other_chk').checked) {
+                substances.push(getV('sub_other_in'));
+            }
+        }
+
+        let res = `[Derma Sentry Check Report]\n`;
+        res += `สาเหตุ: ${getR('cause') || '-'} ${getR('cause') === 'ทราบ' ? '('+getV('cause_detail')+')' : ''}\n`;
+        res += `อาการ: ${getV('q2') || '-'}\n`;
+        res += `อาการแสดง: ${getV('q3') || '-'}\n`;
+        res += `โรคประจำตัว: ${getR('congenital') || '-'} ${getR('congenital') === 'มี' ? '('+getV('disease_detail')+')' : ''}\n`;
+        res += `ข้อมูล: อายุ ${getV('age')} ปี, หนัก ${getV('weight')} กก., สูง ${getV('height')} ซม.\n`;
+        res += `ระยะเวลา: ${getV('duration')} ชม.\n`;
+        res += `เพศ: ${getR('gender') || '-'} ${getR('gender') === 'หญิง' ? '('+(getR('preg') || 'ไม่ระบุ')+')' : ''}\n`;
+        res += `การกระจาย: ${getR('dist') || '-'}\n`;
+        res += `ตำแหน่ง: ${getR('loc') || '-'} ${getR('loc') === 'เฉพาะบริเวณ' ? '('+getV('loc_detail')+')' : ''}\n`;
+        res += `ปัจจัยกระตุ้น: ${getR('trigger') || '-'} ${getR('trigger') === 'ทราบ' ? '('+getV('trigger_detail')+')' : ''}\n`;
+        res += `การติดต่อ: ${getR('cont') || '-'}\n`;
+        res += `เวลานอน: ${getR('sleep') || '-'} ชม.\n`;
+        res += `พฤติกรรมการใช้สาร: ${substances.length > 0 ? substances.join(', ') : 'ไม่มี'}`;
+
+        if (liff.isInClient()) {
+            try {
+                await liff.sendMessages([{ type: 'text', text: res }]);
+                document.getElementById('form-container').style.display = 'none';
+                document.getElementById('finishBtn').style.display = 'none';
+                document.getElementById('success-page').style.display = 'block';
+                setTimeout(() => { liff.closeWindow(); }, 2000);
+            } catch (err) {
+                alert("ส่งข้อมูลไม่สำเร็จ กรุณาเช็คการตั้งค่า Scopes (chat_message.write) ใน LINE Developers");
+            }
+        } else {
+            alert("บันทึกข้อมูลเรียบร้อย (เปิดใน Browser ปกติข้อมูลจะไม่ส่งเข้าแชท)");
+            console.log(res);
+        }
+    }
+</script>
+</body>
+</html>
