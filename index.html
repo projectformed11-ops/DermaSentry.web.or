@@ -53,7 +53,7 @@
 <div id="success-page">
     <div class="success-icon">✓</div>
     <h2>บันทึกข้อมูลสำเร็จ</h2>
-    <p style="color: var(--text-muted);">กำลังส่งข้อมูลกลับไปที่ LINE ของคุณ...</p>
+    <p style="color: var(--text-muted);">กำลังส่งข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว...</p>
 </div>
 
 <div class="container" id="form-container">
@@ -177,12 +177,21 @@
 
 <script>
     const MY_LIFF_ID = "2010047254-tbBUmte0"; 
+    const WEBHOOK_URL = "https://merryhills.app.n8n.cloud/webhook/DermaSentry";
+
+    let lineProfile = null;
 
     async function main() {
         try {
             await liff.init({ liffId: MY_LIFF_ID });
-            if (!liff.isLoggedIn()) { liff.login(); }
-        } catch (err) { console.error("LIFF Init Error", err); }
+            if (!liff.isLoggedIn()) { 
+                liff.login(); 
+            } else {
+                lineProfile = await liff.getProfile();
+            }
+        } catch (err) { 
+            console.error("LIFF Init Error", err); 
+        }
     }
     main();
 
@@ -192,45 +201,93 @@
     }
 
     async function processData() {
-        const getV = (id) => document.getElementById(id).value;
+        const getV = (id) => document.getElementById(id).value.trim() || '-';
         const getR = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
 
         let substances = [];
         if (getR('sub_status') === 'มี') {
             document.querySelectorAll('.sub-item:checked').forEach(item => substances.push(item.value));
-            if (document.getElementById('sub_other_chk').checked) {
-                substances.push(getV('sub_other_in'));
+            const isOtherChecked = document.getElementById('sub_other_chk').checked;
+            const otherVal = getV('sub_other_in');
+            if (isOtherChecked && otherVal !== '-') {
+                substances.push(otherVal);
+            } else if (isOtherChecked) {
+                substances.push('อื่นๆ');
             }
         }
 
+        const payload = {
+            user: {
+                userId: lineProfile?.userId || null,
+                displayName: lineProfile?.displayName || null,
+                pictureUrl: lineProfile?.pictureUrl || null
+            },
+            formData: {
+                cause: getR('cause') || '-',
+                causeDetail: getR('cause') === 'ทราบ' ? getV('cause_detail') : '',
+                symptoms: getV('q2'),
+                signs: getV('q3'),
+                congenitalDisease: getR('congenital') || '-',
+                congenitalDiseaseDetail: getR('congenital') === 'มี' ? getV('disease_detail') : '',
+                weight: getV('weight'),
+                height: getV('height'),
+                age: getV('age'),
+                durationHours: getV('duration'),
+                gender: getR('gender') || '-',
+                pregnancyStatus: getR('gender') === 'หญิง' ? (getR('preg') || 'ไม่ระบุ') : '-',
+                distribution: getR('dist') || '-',
+                location: getR('loc') || '-',
+                locationDetail: getR('loc') === 'เฉพาะบริเวณ' ? getV('loc_detail') : '',
+                trigger: getR('trigger') || '-',
+                triggerDetail: getR('trigger') === 'ทราบ' ? getV('trigger_detail') : '',
+                contagious: getR('cont') || '-',
+                sleepHours: getR('sleep') || '-',
+                substanceUse: substances
+            }
+        };
+
+        // 1. ยิงข้อมูลเข้า n8n Webhook
+        try {
+            await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (err) {
+            console.error("Webhook Send Error:", err);
+        }
+
+        // 2. สร้างข้อความส่งกลับ LINE Chat
         let res = `[Derma Sentry Check Report]\n`;
-        res += `สาเหตุ: ${getR('cause') || '-'} ${getR('cause') === 'ทราบ' ? '('+getV('cause_detail')+')' : ''}\n`;
-        res += `อาการ: ${getV('q2') || '-'}\n`;
-        res += `อาการแสดง: ${getV('q3') || '-'}\n`;
-        res += `โรคประจำตัว: ${getR('congenital') || '-'} ${getR('congenital') === 'มี' ? '('+getV('disease_detail')+')' : ''}\n`;
-        res += `ข้อมูล: อายุ ${getV('age')} ปี, หนัก ${getV('weight')} กก., สูง ${getV('height')} ซม.\n`;
-        res += `ระยะเวลา: ${getV('duration')} ชม.\n`;
-        res += `เพศ: ${getR('gender') || '-'} ${getR('gender') === 'หญิง' ? '('+(getR('preg') || 'ไม่ระบุ')+')' : ''}\n`;
-        res += `การกระจาย: ${getR('dist') || '-'}\n`;
-        res += `ตำแหน่ง: ${getR('loc') || '-'} ${getR('loc') === 'เฉพาะบริเวณ' ? '('+getV('loc_detail')+')' : ''}\n`;
-        res += `ปัจจัยกระตุ้น: ${getR('trigger') || '-'} ${getR('trigger') === 'ทราบ' ? '('+getV('trigger_detail')+')' : ''}\n`;
-        res += `การติดต่อ: ${getR('cont') || '-'}\n`;
-        res += `เวลานอน: ${getR('sleep') || '-'} ชม.\n`;
+        res += `สาเหตุ: ${payload.formData.cause} ${payload.formData.causeDetail ? '('+payload.formData.causeDetail+')' : ''}\n`;
+        res += `อาการ: ${payload.formData.symptoms}\n`;
+        res += `อาการแสดง: ${payload.formData.signs}\n`;
+        res += `โรคประจำตัว: ${payload.formData.congenitalDisease} ${payload.formData.congenitalDiseaseDetail ? '('+payload.formData.congenitalDiseaseDetail+')' : ''}\n`;
+        res += `ข้อมูล: อายุ ${payload.formData.age} ปี, หนัก ${payload.formData.weight} กก., สูง ${payload.formData.height} ซม.\n`;
+        res += `ระยะเวลา: ${payload.formData.durationHours} ชม.\n`;
+        res += `เพศ: ${payload.formData.gender} ${payload.formData.gender === 'หญิง' ? '('+payload.formData.pregnancyStatus+')' : ''}\n`;
+        res += `การกระจาย: ${payload.formData.distribution}\n`;
+        res += `ตำแหน่ง: ${payload.formData.location} ${payload.formData.locationDetail ? '('+payload.formData.locationDetail+')' : ''}\n`;
+        res += `ปัจจัยกระตุ้น: ${payload.formData.trigger} ${payload.formData.triggerDetail ? '('+payload.formData.triggerDetail+')' : ''}\n`;
+        res += `การติดต่อ: ${payload.formData.contagious}\n`;
+        res += `เวลานอน: ${payload.formData.sleepHours} ชม.\n`;
         res += `พฤติกรรมการใช้สาร: ${substances.length > 0 ? substances.join(', ') : 'ไม่มี'}`;
 
+        // 3. ส่งเข้าแชท LINE และสลับหน้า
         if (liff.isInClient()) {
             try {
                 await liff.sendMessages([{ type: 'text', text: res }]);
-                document.getElementById('form-container').style.display = 'none';
-                document.getElementById('finishBtn').style.display = 'none';
-                document.getElementById('success-page').style.display = 'block';
-                setTimeout(() => { liff.closeWindow(); }, 2000);
             } catch (err) {
-                alert("ส่งข้อมูลไม่สำเร็จ กรุณาเช็คการตั้งค่า Scopes (chat_message.write) ใน LINE Developers");
+                console.error("LINE sendMessages Error:", err);
             }
-        } else {
-            alert("บันทึกข้อมูลเรียบร้อย (เปิดใน Browser ปกติข้อมูลจะไม่ส่งเข้าแชท)");
-            console.log(res);
+        }
+
+        document.getElementById('form-container').style.display = 'none';
+        document.getElementById('finishBtn').style.display = 'none';
+        document.getElementById('success-page').style.display = 'block';
+
+        if (liff.isInClient()) {
+            setTimeout(() => { liff.closeWindow(); }, 2000);
         }
     }
 </script>
