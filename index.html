@@ -177,7 +177,8 @@
 
 <script>
     const MY_LIFF_ID = "2010047254-tbBUmte0"; 
-    const WEBHOOK_URL = "https://merryhills.app.n8n.cloud/webhook/DermaSentry";
+    // อัปเดตเป็น Webhook Test URL
+    const WEBHOOK_URL = "https://merryhills.app.n8n.cloud/webhook-test/DermaSentry";
 
     let lineProfile = null;
 
@@ -246,7 +247,7 @@
             }
         };
 
-        // 1. ยิงข้อมูลเข้า n8n Webhook
+        // 1. ยิงข้อมูลเข้า n8n Test Webhook
         try {
             await fetch(WEBHOOK_URL, {
                 method: 'POST',
