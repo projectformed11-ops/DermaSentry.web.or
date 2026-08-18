@@ -177,7 +177,6 @@
 
 <script>
     const MY_LIFF_ID = "2010047254-tbBUmte0"; 
-    // อัปเดตเป็น Webhook Test URL
     const WEBHOOK_URL = "https://kiki1128.app.n8n.cloud/webhook-test/DermaSentry";
 
     let lineProfile = null;
@@ -202,6 +201,15 @@
     }
 
     async function processData() {
+        // ดึง Profile อีกครั้งตอนกดปุ่มป้องกันค่า userId เป็น null
+        if (liff.isLoggedIn()) {
+            try {
+                lineProfile = await liff.getProfile();
+            } catch (e) {
+                console.error("Get profile error", e);
+            }
+        }
+
         const getV = (id) => document.getElementById(id).value.trim() || '-';
         const getR = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value;
 
@@ -247,18 +255,7 @@
             }
         };
 
-        // 1. ยิงข้อมูลเข้า n8n Test Webhook
-        try {
-            await fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-        } catch (err) {
-            console.error("Webhook Send Error:", err);
-        }
-
-        // 2. สร้างข้อความส่งกลับ LINE Chat
+        // 1. สร้างข้อความสรุป
         let res = `[Derma Sentry Check Report]\n`;
         res += `สาเหตุ: ${payload.formData.cause} ${payload.formData.causeDetail ? '('+payload.formData.causeDetail+')' : ''}\n`;
         res += `อาการ: ${payload.formData.symptoms}\n`;
@@ -274,7 +271,7 @@
         res += `เวลานอน: ${payload.formData.sleepHours} ชม.\n`;
         res += `พฤติกรรมการใช้สาร: ${substances.length > 0 ? substances.join(', ') : 'ไม่มี'}`;
 
-        // 3. ส่งเข้าแชท LINE และสลับหน้า
+        // 2. ส่งเข้าแชท LINE ก่อน
         if (liff.isInClient()) {
             try {
                 await liff.sendMessages([{ type: 'text', text: res }]);
@@ -283,6 +280,18 @@
             }
         }
 
+        // 3. ยิงข้อมูลเข้า n8n Webhook
+        try {
+            await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (err) {
+            console.error("Webhook Send Error:", err);
+        }
+
+        // 4. สลับแสดงหน้าสำเร็จ
         document.getElementById('form-container').style.display = 'none';
         document.getElementById('finishBtn').style.display = 'none';
         document.getElementById('success-page').style.display = 'block';
